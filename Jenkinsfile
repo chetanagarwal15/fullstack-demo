@@ -1,68 +1,86 @@
 pipeline {
-  agent any
+    agent any
 
-  tools {
-    nodejs "NodeJS_18"
-  }
-
-  environment {
-    REPO = "https://github.com/chetanagarwal15/fullstack-demo.git"
-    SONAR_TOKEN = credentials('sonar-token')
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    tools {
+        // Make Jenkins use the installed scanner
+        sonar 'SonarScanner'
     }
 
-    stage('Install Dependencies') {
-      steps {
-        sh 'cd backend && npm install'
-        sh 'cd frontend && npm install'
-      }
+    environment {
+        // Optional: define Node or other tools here if needed
+        NODE_HOME = tool 'NodeJS'
     }
 
-    stage('Run Backend Tests') {
-      steps {
-        sh 'cd backend && npm test || true'
-      }
-    }
-
-    stage('Run Frontend Tests') {
-      steps {
-        sh 'cd frontend && npm test -- --watchAll=false || true'
-      }
-    }
-
-    stage('Build Frontend') {
-      steps {
-        sh 'cd frontend && npm run build'
-      }
-    }
-
-    stage('SonarQube Analysis') {
-      steps {
-        withSonarQubeEnv('MySonarQubeServer') {
-          sh '''
-            cd backend
-            sonar-scanner \
-              -Dsonar.projectKey=backend \
-              -Dsonar.sources=. \
-              -Dsonar.host.url=$SONAR_HOST_URL \
-              -Dsonar.login=$SONAR_TOKEN
-          '''
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/chetanagarwal15/fullstack-demo.git',
+                    credentialsId: 'github-token'
+            }
         }
-      }
-    }
-  }
 
-  post {
-    always {
-      junit 'backend/test-results/**/*.xml'
-      archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                cd backend && npm install
+                cd ../frontend && npm install
+                '''
+            }
+        }
+
+        stage('Run Backend Tests') {
+            steps {
+                sh '''
+                cd backend
+                npm test -- --ci --reporters=default --reporters=jest-junit --outputFile=test-results/junit.xml
+                '''
+            }
+        }
+
+        stage('Run Frontend Tests') {
+            steps {
+                sh '''
+                cd frontend
+                npm test -- --ci --reporters=default --reporters=jest-junit --outputFile=test-results/junit.xml
+                '''
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                sh '''
+                cd frontend
+                npm run build
+                '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarQubeServer') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                        cd backend
+                        ${tool('SonarScanner')}/bin/sonar-scanner \
+                            -Dsonar.projectKey=backend \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=http://localhost:9000 \
+                            -Dsonar.login=$SONAR_TOKEN
+                        """
+                    }
+                }
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            // Collect JUnit test results
+            junit allowEmptyResults: true, testResults: 'backend/test-results/*.xml'
+            junit allowEmptyResults: true, testResults: 'frontend/test-results/*.xml'
+        }
+    }
 }
+
 
