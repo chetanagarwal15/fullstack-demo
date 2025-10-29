@@ -2,12 +2,7 @@ pipeline {
     agent any
 
     tools {
-    SonarQubeScanner 'SonarScanner'
-  }
-
-    environment {
-        // Optional: define Node or other tools here if needed
-        NODE_HOME = tool 'NodeJS'
+        nodejs 'NodeJS'  // Optional, if you have NodeJS tool configured
     }
 
     stages {
@@ -75,11 +70,8 @@ pipeline {
 
     post {
         always {
-            // Collect JUnit test results
             junit allowEmptyResults: true, testResults: 'backend/test-results/*.xml'
             junit allowEmptyResults: true, testResults: 'frontend/test-results/*.xml'
         }
     }
 }
-
-
