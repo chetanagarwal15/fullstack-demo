@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     tools {
-        // Make Jenkins use the installed scanner
-        sonar 'SonarScanner'
-    }
+    SonarQubeScanner 'SonarScanner'
+  }
 
     environment {
         // Optional: define Node or other tools here if needed
